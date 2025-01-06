@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+
+<html lang="ja"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="試験管の色水をソートするゲーム。広告でよく出るアレ。">
+
+<title>Water Sort</title>
+
+<script>
+
+var back_color = "hsl(50,100%,90%)";
+var vial_color = "RGB(32,32,32)";
+var selector_color = "RGB(255,0,0)";
+
+var water_color = [];
+
+var canvas;
+var context;
+
+var mouse_x = 0;
+var mouse_y = 0;
+var mouse_cell_x = 0;
+var mouse_cell_y = 0;
+
+var click_x = 0;
+var click_y = 0;
+var click_cell_x = 0;
+var click_cell_y = 0;
+
+var cell_size = 0;
+var border_size = 5;
+var split = 2;
+
+var font_size = 10;
+var clear_width;
+var clear_height;
+
+var depth = 4;
+var water_count = 6;
+
+var selected = -1;
+var vial = [];
+var moto = [];
+var teban = [];
+
+
+//---イニシャル-------------------------------
+
+function init(){
+	context = game_display.getContext('2d');
+
+	init_game();
+
+	window.onresize = resize_board;
+	game_display.onclick = click_board;
+	
+}
+
+//---イベントハンドラ------------------------
+
+function click_board(e){
+	rect = game_display.getBoundingClientRect();
+	click_x = e.clientX - rect.left;
+	click_y = e.clientY - rect.top;
+
+	click_cell_x = Math.floor(click_x / cell_size);
+	click_cell_y = Math.floor(click_y / cell_size);
+
+	//xマスが奇数ならvialをクリックしてるので関数へ投げる
+
+	if(click_cell_x%2){
+		xx = Math.floor(click_cell_x/2);
+		xx += Math.floor(click_cell_y / (depth+1))*Math.ceil(vial.length/split);
+		if(xx<vial.length){click_vial(xx);}
+	}
+}
+
+
+//---------ゲーム関連-------------------
+
+function init_game(){//盤面のセットアップ
+	
+	teban = [];
+	vial = [];
+	water_color = [];
+	move_history = [];
+	selected = -1;
+
+	ww = Math.floor(iro.value);
+
+	if(ww<3){ww=3;}
+	if(ww>100){ww=100;}
+
+	iro.value = ww;
+	water_count = ww;
+
+	for(var x=0;x<water_count+2;x++){
+		if(x<water_count){
+			aa = vial.push([]);
+			for(i=0;i<depth;i++){vial[aa-1].push(x);}
+			hh = Math.floor((Math.exp(x/water_count*Math.log(2))-1)*300);
+			ss = Math.floor(100-((x % 2) / 2 * water_count + x / 2) / water_count * 40);
+			ll = Math.floor(70-((x % 3) / 3 * water_count + x / 3) / water_count * 40);
+			water_color.push("HSL(" + hh + "," +ss+ "%,"+ll+"%)");
+		}
+		else{
+			aa = vial.push([]);
+			for(i=0;i<depth;i++){vial[aa-1].push(-1);}
+		}
+	}
+
+	full_random();
+
+	moto = [];
+	for(var x = 0 ; x < vial.length ; x++){
+		moto.push([]);
+		for(y=0 ; y < depth ; y++){moto[x].push(vial[x][y]);}
+	}
+
+	resize_board();
+}
+
+function full_random(){
+	noko = [];
+	tsukatta = [];
+	nokori =water_count;
+
+	for(var x = 0 ; x < water_count ; x++){noko.push(depth);tsukatta.push(0);}
+
+	for(var x = 0 ; x < vial.length ; x++){
+		for(var y = 0 ; y < depth ; y++){
+			if(x>=water_count){vial[x][y] = -1;continue;}
+			
+			rr=0;
+			for(var i = 0 ; i < water_count ; i++){if(tsukatta[i]>0){rr++;}}
+			rr = Math.floor(Math.random() * (nokori * 2 -rr));
+			for(var i = 0 ; i < water_count ; i++){
+				if(rr >= i*2 && noko[i] == 0){rr+=2;}
+				else if(rr >= i*2 && tsukatta[i] > 0){rr++;}
+			}
+			rr = Math.floor(rr/2);
+			
+			vial[x][y] = rr;
+			
+			noko[rr]--;
+			tsukatta[rr] =1;
+			if(noko[rr]<=0){
+				nokori--;
+				tsukatta[rr] =0;
+			}
+		}
+	}
+}
+
+function reset(){//最初の元の盤面にリセット
+	selected =-1;
+	teban = [];
+	for(var x = 0 ; x < vial.length ; x++){
+		for(y = 0;y < vial[x].length ; y++){vial[x][y] = moto[x][y];}
+	}
+	draw_board();
+}
+
+function back(){
+	aa = teban.pop();
+	if(aa){
+		for(var i=0;i<aa[2];i++){
+			move(aa[1],aa[0]);
+		}
+	}
+	draw_board();
+}
+
+function click_vial(xx){//バイアルをクリックされた時の処理
+	if(is_filled(xx)){return false;}
+	else if(selected==xx){selected = -1;}
+	else if(selected==-1){if(top_color(xx)==-1){return false;};selected = xx;}
+	else{check_move(selected,xx);}
+	draw_board();
+}
+
+function check_move(ff,tt){
+	selected = -1;
+	if(top_color(tt) != -1 && top_color(ff) != top_color(tt))return false;
+	mm = Math.min(top_depth(ff),vial_room(tt));
+	teban.push([ff,tt,mm]);
+	for(var i=0;i<mm;i++){
+		move(ff,tt);
+	}
+}
+
+function move(ff,tt){
+	var dd;
+	var td;
+	var fd;
+	if(top_depth(ff)==0 || vial_room(tt)==0){return false;}
+	for(var i = depth - 1; i >= 0;i--){
+		if(vial[ff][i] != -1){
+			fd = i;
+			dd = vial[ff][i];
+			vial[ff][i] = -1;
+			break;
+		}
+	}
+
+	for(var i = depth - 1; i >= 0;i--){
+		if(vial[tt][i] != -1){
+			td = i;
+			vial[tt][i+1]=dd;
+			break;
+		}
+		if(vial[tt][i] == -1 && i==0){
+			td = i;
+			vial[tt][i]=dd;
+			break;
+		}
+	}
+
+//console.log("ff = "+ff+","+fd+",tt = "+tt+","+td);
+
+}
+
+function is_filled(xx){
+	if(xx < 0 || vial.length <= xx){return false;}
+	ref = vial[xx][depth-1];
+	for(var i = depth - 1; i >= 0;i--){
+		if(vial[xx][i] == -1 || vial[xx][i] != ref)return false;
+		ref = vial[xx][i];
+	}
+	return true;
+}
+
+function top_color(xx){
+	if(xx < 0 || vial.length <= xx){return undefined;}
+	for(var i = depth-1;i>=0;i--){
+		//console.log("xx=" + xx + ",i = " + i + ",i = "+i);
+		if(vial[xx][i] != -1){return(vial[xx][i]);};
+	}
+	return -1;
+}
+
+function top_depth(xx){
+	if(xx < 0 || vial.length <= xx){return 0;}
+	dd =0
+	ref=-1;
+	for(var i = depth-1;i>=0;i--){
+		if(vial[xx][i] != -1)dd++;
+		if(ref !=-1 && ref != vial[xx][i])return dd-1;
+		ref = vial[xx][i];
+	}
+	return dd;
+}
+
+function vial_room(xx){
+
+	if(xx < 0 || vial.length <= xx){return 0;}
+	dd=0;
+	for(var i = depth-1;i>=0;i--){
+		if(vial[xx][i] != -1)return dd;
+		dd++;
+	}
+	return dd;
+}
+
+function is_clear(){
+	for(var i=0;i<vial.length;i++){
+		if(is_filled(i) == false && top_depth(i) > 0)return false;
+	}
+	return true;
+}
+//-------------------------------------------------------------------------------------
+//--描画関連---------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------
+
+function draw_board(){//ボードを表示する
+
+	//--背景ぬりつぶし
+	context.fillStyle=back_color;
+	context.fillRect(0,0,game_display.width,game_display.height);
+
+	var vv;
+	var cc;
+	var tt = -1;
+	if(selected>=0){tt = top_color(selected);}
+
+	//vialの塗り
+	for(i=0;i<vial.length;i++){
+
+		xx = ((i%Math.ceil(vial.length/split))*2+1.5)*cell_size;
+		yy = (Math.floor(i/Math.ceil(vial.length/split))*(depth+1)+(depth+0.5))*cell_size;
+
+		//内容物の塗り
+
+		for(ii=0;ii<depth;ii++){
+
+			if(vial[i][ii] == tt && tt != -1){vv = selector_color;}//選択されたところのトップの色ならバイアルのその部分も選択色にする
+			else{vv = vial_color;}//そうでなければ
+
+			if(vial[i][ii] == -1){cc = back_color;}//空なら背景色
+			else{cc = water_color[vial[i][ii]];}//液なら対応の色
+
+			if(ii==0){//底の塗り
+				context.fillStyle = vv;
+				context.beginPath();
+				context.arc(xx, yy ,cell_size / 2 ,0,2 * Math.PI);
+				context.closePath();
+				context.fill();
+				context.fillRect(xx - cell_size / 2 ,yy - cell_size * (ii + 0.5),cell_size,cell_size/2);
+
+				context.fillStyle = cc;
+				context.beginPath();
+				context.arc(xx, yy ,cell_size / 2 - border_size ,0,2 * Math.PI);
+				context.closePath();
+				context.fill();
+				context.fillRect(xx - cell_size / 2 +border_size,yy - cell_size * (ii + 0.5),cell_size- border_size * 2,cell_size/2);
+			}else{//そうでない塗り
+
+				context.fillStyle = vv;
+				context.fillRect(xx - cell_size / 2 ,yy - cell_size * (ii + 0.5),cell_size,cell_size);
+				context.fillStyle = cc;
+				context.fillRect(xx - cell_size / 2 +border_size,yy - cell_size * (ii + 0.5),cell_size- border_size * 2,cell_size);
+			}
+		}
+	}
+
+	if(selected!=-1){
+		xx = ((selected % Math.ceil(vial.length/split))*2+1.5) * cell_size;
+		yy = (Math.floor(selected/Math.ceil(vial.length/split))*(depth+1)  + 0.5) * cell_size;
+		
+		context.fillStyle = selector_color;
+	
+		context.beginPath();
+		context.arc(xx, yy ,cell_size / 3 ,0,2 * Math.PI);
+		context.closePath();
+		context.fill();
+	}
+
+	if(is_clear()){
+		context.fillStyle ="RGBA(255,255,255,70%)";
+context.fillRect((game_display.width-clear_width)/2,(game_display.height-clear_height)/2,clear_width,clear_height);
+
+		context.font=""+font_size+"px";
+		context.textBaseline = "middle";
+		context.textAlign = 'center';
+		context.fillStyle = vial_color;
+		context.fillText("C l e a r !",game_display.width/2,game_display.height/2);
+	}
+
+}
+
+function resize_board(){ //ボードのリサイズ
+
+	ww = vial.length;
+	
+	cell_size = 0;
+	split = 1;
+	for(i = 1;i<=ww;i++){
+		tmp = Math.floor(Math.min((window.innerHeight-game_display.getBoundingClientRect().top - 10) / (i*(depth+1)),(window.innerWidth - 10)/(Math.ceil(ww/i)*2+1)));
+		if(tmp > cell_size){split = i;cell_size = tmp;}
+		if((window.innerHeight - game_display.getBoundingClientRect().top - 10) / (window.innerWidth - 10) < cell_size * split * (depth + 1 ) / (cell_size * (Math.ceil(ww / split) * 2 + 1))){break;}
+	}
+	
+	game_display.width = (Math.ceil(ww/split)*2+1) * cell_size;
+	game_display.height = (depth+1)*split * cell_size;
+
+	clear_width = 0;
+	font_size = 5;
+
+	while(clear_width < game_display.width/2){
+		font_size++;
+		context.font = ""+font_size+"px monospace";
+		let metrics = context.measureText("C l e a r !");
+		clear_width = metrics.width+20;
+		clear_height = metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent+20;
+	}
+
+	draw_board();
+}
+
+//---------------------
+
+</script>
+
+</head>
+<body onload="init();" >
+<table width=100%><tr><td align=left>
+色数<input type="number" min="3" max="100" step="1" id="iro" name="iro" value="10" style="width:3em">
+<button onClick="init_game();">シャッフル</button>
+</td><td align="right">
+<button onClick="reset();">最初に戻す</button>　
+<button onClick="back();">1手戻す</button>
+</td></tr></table>
+<center>
+<canvas id="game_display"></canvas>
+</center>
+
+</body>
+</html>
