@@ -97,7 +97,7 @@ function init_game(){//盤面のセットアップ
 	for(let x=0;x<water_count+2;x++){
 		if(x<water_count){
 			aa = vial.push([]);
-			for(i=0;i<depth;i++){vial[aa-1].push(x);}
+			for(i=0;i<depth;i++){vial[aa-1].push(-1);}
 			hh = Math.floor((Math.exp(x/water_count*Math.log(2))-1)*300);
 			ss = Math.floor(100-((x % 2) / 2 * water_count + x / 2) / water_count * 40);
 			ll = Math.floor(70-((x % 3) / 3 * water_count + x / 3) / water_count * 40);
