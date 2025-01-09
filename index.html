@@ -55,7 +55,6 @@ function init(){
 
 	window.onresize = resize_board;
 	game_display.onclick = click_board;
-	
 }
 
 //---イベントハンドラ------------------------
@@ -86,7 +85,6 @@ function init_game(){//盤面のセットアップ
 	vial = [];
 	water_color = [];
 	selected = -1;
-
 
 	ww = Math.floor(iro.value);
 
@@ -125,37 +123,35 @@ function init_game(){//盤面のセットアップ
 
 function full_random(){
 	noko = [];
-	tsukatta = [];
 	nokori = water_count;
 
-	for(let x = 0 ; x < water_count ; x++){noko.push(depth);tsukatta.push(0);}
+	for(let x = 0 ; x < water_count ; x++){noko.push(depth);}
 
-	for(let x = 0 ; x < vial.length ; x++){
-		for(let y = 0 ; y < depth ; y++){
+	for(let y = 0 ; y < depth ; y++){
+		for(let x = 0 ; x < vial.length ; x++){
 
-			if(x>=water_count){vial[x][y] = -1;continue;}
+			if(x >= water_count){vial[x][y] = -1;continue;}
 
-			rr=0;
+			let rr = 0;
+			noko.map((v) => rr += v);
+			if(nokori > 1 && y > 0)rr -= noko[top_color(x)];
 
-			for(let i = 0 ; i < water_count ; i++){if(tsukatta[i]>0){rr++;}}
+			rr = Math.floor(Math.random() * rr);
 
-			rr = Math.floor(Math.random() * (nokori * 2 -rr));
-			for(let i = 0 ; i < water_count ; i++){
-				if(rr >= i*2 && noko[i] == 0){rr+=2;}
-				else if(rr >= i*2 && tsukatta[i] > 0){rr++;}
+			let i = -1;
+			while(0 <= rr){
+				i++;
+				if(nokori == 1 || top_color(x) != i){
+					rr -= noko[i];
+				}
 			}
-			rr = Math.floor(rr/2);
 
-			vial[x][y] = rr;
+			vial[x][y] = i;
 			
-			noko[rr]--;
-			tsukatta[rr] = 1;
-			if(noko[rr]<=0){
-				nokori--;
-				tsukatta[rr] =0;
-			}
+			noko[i]--;
+
+			if(noko[i]<=0){nokori--;}
 		}
-		tsukatta.map((v,i,a)=> a[i] = 0);
 	}
 }
 
@@ -199,7 +195,7 @@ function check_move(ff,tt){//移動か適正かチェック
 	save_data();
 }
 
-function move(ff,tt){
+function move(ff,tt){//実際の移動
 	let dd;
 	let td;
 	let fd;
@@ -225,7 +221,7 @@ function move(ff,tt){
 
 }
 
-function is_filled(xx){
+function is_filled(xx){//バイアルが単色で完成されているか
 	if(xx < 0 || vial.length <= xx){return false;}
 	ref = vial[xx][depth-1];
 	for(let i = depth - 1; i >= 0;i--){
@@ -235,7 +231,7 @@ function is_filled(xx){
 	return true;
 }
 
-function top_color(xx){
+function top_color(xx){//バイアルの一番上の色
 	if(xx < 0 || vial.length <= xx){return undefined;}
 	for(let i = depth-1;i>=0;i--){
 		//console.log("xx=" + xx + ",i = " + i + ",i = "+i);
@@ -244,7 +240,7 @@ function top_color(xx){
 	return -1;
 }
 
-function top_depth(xx){
+function top_depth(xx){//バイアルの一番上の色だけでどれだけの深さがあるか
 	if(xx < 0 || vial.length <= xx){return 0;}
 	dd =0
 	ref=-1;
@@ -256,7 +252,7 @@ function top_depth(xx){
 	return dd;
 }
 
-function vial_room(xx){
+function vial_room(xx){//バイアルの空き
 
 	if(xx < 0 || vial.length <= xx){return 0;}
 	dd=0;
@@ -267,7 +263,7 @@ function vial_room(xx){
 	return dd;
 }
 
-function is_clear(){
+function is_clear(){//ゲームクリアしているか
 	for(let i=0;i<vial.length;i++){
 		if(is_filled(i) == false && top_depth(i) > 0)return false;
 	}
